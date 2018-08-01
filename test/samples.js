@@ -1,6 +1,11 @@
 /// <reference path="../node_modules/monaco-editor-core/monaco.d.ts" />
 
-define([], function() {
+define(['./samples-all.generated'], function(ALL_SAMPLES) {
+
+	var XHR_SAMPLES = {};
+	ALL_SAMPLES.forEach(function(sample) {
+		XHR_SAMPLES[sample.name] = sample.content;
+	});
 
 	var samples = [];
 
@@ -12,9 +17,7 @@ define([], function() {
 			name: 'sample - ' + modeId,
 			mimeType: modeId,
 			loadText: function() {
-				return xhr('samples/sample.' + modeId + '.txt').then(function(xhrResponse) {
-					return xhrResponse.responseText;
-				});
+				return monaco.Promise.as(XHR_SAMPLES['sample.' + modeId + '.txt']);
 			}
 		});
 	});
@@ -25,9 +28,7 @@ define([], function() {
 			name: name,
 			mimeType: mimeType,
 			loadText: function() {
-				return xhr('samples/' + modelUrl).then(function(xhrResponse) {
-					return textModifier(xhrResponse.responseText);
-				});
+				return monaco.Promise.as(XHR_SAMPLES[modelUrl]).then(textModifier);
 			}
 		});
 	}
@@ -65,6 +66,7 @@ define([], function() {
 	addXHRSample('Z___jquery-min.js', 'run-editor-jquery-min-js.txt', 'text/javascript');
 
 	addXHRSample('Z___scrolling-strategy.js', 'run-editor-sample-js.txt', 'text/plain', function(text) {
+		console.log('here I am');
 		var lines = text.split('\n');
 		var newLines = lines.slice(0);
 
@@ -239,33 +241,4 @@ define([], function() {
 	addXHRSample('Z___f12___css','run-editor-sample-f12-css.txt','text/css');
 
 	return samples;
-
-	function xhr(url) {
-		var req = null;
-		return new monaco.Promise(function(c,e,p) {
-			req = new XMLHttpRequest();
-			req.onreadystatechange = function () {
-				if (req._canceled) { return; }
-
-				if (req.readyState === 4) {
-					if ((req.status >= 200 && req.status < 300) || req.status === 1223) {
-						c(req);
-					} else {
-						e(req);
-					}
-					req.onreadystatechange = function () { };
-				} else {
-					p(req);
-				}
-			};
-
-			req.open("GET", url, true );
-			req.responseType = "";
-
-			req.send(null);
-		}, function () {
-			req._canceled = true;
-			req.abort();
-		});
-	}
 });

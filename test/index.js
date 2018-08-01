@@ -1,21 +1,14 @@
 /// <reference path="../node_modules/monaco-editor-core/monaco.d.ts" />
-define(['./samples'], function(SAMPLES) {
+define(['require', './samples'], function(require, SAMPLES) {
 
-var WRAPPING_COLUMN = 300;
+var domutils = require('vs/base/browser/dom');
 
 var model = monaco.editor.createModel('', 'plaintext');
 
 var editor = monaco.editor.create(document.getElementById('container'), {
 	model: model,
-	readOnly: false,
 	glyphMargin: true,
-	wrappingColumn: WRAPPING_COLUMN,
-	outlineMarkers: false,
-	renderWhitespace: true,
-	// scrollbar: {
-	// 	verticalHasArrows: true,
-	// 	horizontalHasArrows: true
-	// }
+	renderWhitespace: true
 });
 
 editor.addCommand({
@@ -29,23 +22,13 @@ editor.addCommand({
 editor.addAction({
 	id: 'my-unique-id',
 	label: 'My Label!!!',
-	keybindings: [
-		{
-			ctrlCmd: true,
-			key: 'F10'
-		}
-	],
-	enablement: {
-		textFocus: true,
-		wordAtPosition: true,
-		tokensAtPosition: ['identifier', '', 'keyword'],
-	},
-	contextMenuGroupId: '2_change/2_bla',
+	keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.F10],
+	contextMenuGroupId: 'navigation',
+	contextMenuOrder: 2.5,
 	run: function(ed) {
 		console.log("i'm running => " + ed.getPosition());
 	}
 });
-
 
 var currentSamplePromise = null;
 var samplesData = {};
@@ -70,7 +53,14 @@ var modesData = {};
 monaco.languages.getLanguages().forEach(function(language) {
 	modesData[language.id] = updateEditor.bind(this, language.id);
 });
-var modesComboBox = new ComboBox ('Mode', modesData);
+var modesComboBox = new ComboBox('Mode', modesData);
+
+
+var themesData = {};
+themesData['vs'] = function() { monaco.editor.setTheme('vs') };
+themesData['vs-dark'] = function() { monaco.editor.setTheme('vs-dark') };
+themesData['hc-black'] = function() { monaco.editor.setTheme('hc-black') };
+var themesComboBox = new ComboBox('Theme', themesData);
 
 
 // Do it in a timeout to simplify profiles
@@ -84,6 +74,7 @@ window.setTimeout(function () {
 
 	if (location.hash) {
 		START_SAMPLE = location.hash.replace(/^\#/, '');
+		START_SAMPLE = decodeURIComponent(START_SAMPLE);
 	}
 
 	samplesData[START_SAMPLE]();
@@ -120,6 +111,8 @@ function createToolbar(editor) {
 	bar.appendChild(examplesComboBox.domNode);
 
 	bar.appendChild(modesComboBox.domNode);
+
+	bar.appendChild(themesComboBox.domNode);
 
 	bar.appendChild(createButton("Dispose all", function (e) {
 		editor.dispose();
@@ -174,15 +167,7 @@ function createToolbar(editor) {
 			}
 		};
 	})()));
-
-	bar.appendChild(createButton("Colorize", function(e) {
-		var out = document.getElementById('colorizeOutput');
-		monaco.editor.colorize(editor.getModel().getValue(), editor.getModel().getMode().getId(), { tabSize: 4 }).then(function(r) {
-			out.innerHTML = r;
-		});
-	}));
 }
-
 
 function createButton(label, onClick) {
 	var result = document.createElement("button");
@@ -191,111 +176,103 @@ function createButton(label, onClick) {
 	return result;
 }
 
-
 function createOptions(editor) {
 	var options = document.getElementById('options');
 
-	options.appendChild(createOptionToggle(editor, 'lineNumbers', function(config) {
-		return config.viewInfo.lineNumbers;
-	}, function(editor, newValue) {
-		editor.updateOptions({ lineNumbers: newValue });
-	}));
+	options.appendChild(createOptionToggle(
+		editor,
+		'lineNumbers',
+		function(config) {
+			return config.viewInfo.renderLineNumbers;
+		},
+		function(editor, newValue) {
+			editor.updateOptions({ lineNumbers: newValue ? 'on': 'off' });
+		}
+	));
 
-	options.appendChild(createOptionToggle(editor, 'glyphMargin', function(config) {
-		return config.viewInfo.glyphMargin;
-	}, function(editor, newValue) {
-		editor.updateOptions({ glyphMargin: newValue });
-	}));
+	options.appendChild(createOptionToggle(
+		editor,
+		'glyphMargin',
+		function(config) {
+			return config.viewInfo.glyphMargin;
+		},
+		function(editor, newValue) {
+			editor.updateOptions({ glyphMargin: newValue });
+		}
+	));
 
-	options.appendChild(createOptionToggle(editor, 'roundedSelection', function(config) {
-		return config.viewInfo.roundedSelection;
-	}, function(editor, newValue) {
-		editor.updateOptions({ roundedSelection: newValue });
-	}));
+	options.appendChild(createOptionToggle(
+		editor,
+		'minimap',
+		function(config) {
+			return config.viewInfo.minimap.enabled;
+		},
+		function(editor, newValue) {
+			editor.updateOptions({ minimap: { enabled: newValue } });
+		}
+	));
 
-	options.appendChild(createOptionToggle(editor, 'dark', function(config) {
-		return config.viewInfo.theme === 'vs-dark';
-	}, function(editor, newValue) {
-		editor.updateOptions({ theme: newValue ? 'vs-dark' : 'vs' });
-	}));
+	options.appendChild(createOptionToggle(
+		editor,
+		'roundedSelection',
+		function(config) {
+			return config.viewInfo.roundedSelection;
+		},
+		function(editor, newValue) {
+			editor.updateOptions({ roundedSelection: newValue });
+		}
+	));
 
-	options.appendChild(createOptionToggle(editor, 'readOnly', function(config) {
-		return config.readOnly;
-	}, function(editor, newValue) {
-		editor.updateOptions({ readOnly: newValue });
-	}));
+	options.appendChild(createOptionToggle(
+		editor,
+		'scrollBeyondLastLine',
+		function(config) {
+			return config.viewInfo.scrollBeyondLastLine;
+		}, function(editor, newValue) {
+			editor.updateOptions({ scrollBeyondLastLine: newValue });
+		}
+	));
 
-	options.appendChild(createOptionToggle(editor, 'hideCursorInOverviewRuler', function(config) {
-		return config.viewInfo.hideCursorInOverviewRuler;
-	}, function(editor, newValue) {
-		editor.updateOptions({ hideCursorInOverviewRuler: newValue });
-	}));
+	options.appendChild(createOptionToggle(
+		editor,
+		'renderWhitespace',
+		function(config) {
+			return config.viewInfo.renderWhitespace;
+		}, function(editor, newValue) {
+			editor.updateOptions({ renderWhitespace: newValue });
+		}
+	));
 
-	options.appendChild(createOptionToggle(editor, 'scrollBeyondLastLine', function(config) {
-		return config.viewInfo.scrollBeyondLastLine;
-	}, function(editor, newValue) {
-		editor.updateOptions({ scrollBeyondLastLine: newValue });
-	}));
+	options.appendChild(createOptionToggle(
+		editor,
+		'readOnly',
+		function(config) {
+			return config.readOnly;
+		},
+		function(editor, newValue) {
+			editor.updateOptions({ readOnly: newValue });
+		}
+	));
 
-	options.appendChild(createOptionToggle(editor, 'wordWrap', function(config) {
-		return config.wrappingInfo.isViewportWrapping;
-	}, function(editor, newValue) {
-		editor.updateOptions({ wrappingColumn: newValue ? 0 : WRAPPING_COLUMN });
-	}));
+	options.appendChild(createOptionToggle(
+		editor,
+		'wordWrap',
+		function(config) {
+			return config.wrappingInfo.isViewportWrapping;
+		}, function(editor, newValue) {
+			editor.updateOptions({ wordWrap: newValue ? 'on' : 'off' });
+		}
+	));
 
-	options.appendChild(createOptionToggle(editor, 'quickSuggestions', function(config) {
-		return config.contribInfo.quickSuggestions;
-	}, function(editor, newValue) {
-		editor.updateOptions({ quickSuggestions: newValue });
-	}));
-
-	options.appendChild(createOptionToggle(editor, 'iconsInSuggestions', function(config) {
-		return config.contribInfo.iconsInSuggestions;
-	}, function(editor, newValue) {
-		editor.updateOptions({ iconsInSuggestions: newValue });
-	}));
-
-	options.appendChild(createOptionToggle(editor, 'autoClosingBrackets', function(config) {
-		return config.autoClosingBrackets;
-	}, function(editor, newValue) {
-		editor.updateOptions({ autoClosingBrackets: newValue });
-	}));
-
-	options.appendChild(createOptionToggle(editor, 'formatOnType', function(config) {
-		return config.contribInfo.formatOnType;
-	}, function(editor, newValue) {
-		editor.updateOptions({ formatOnType: newValue });
-	}));
-
-	options.appendChild(createOptionToggle(editor, 'suggestOnTriggerCharacters', function(config) {
-		return config.contribInfo.suggestOnTriggerCharacters;
-	}, function(editor, newValue) {
-		editor.updateOptions({ suggestOnTriggerCharacters: newValue });
-	}));
-
-	options.appendChild(createOptionToggle(editor, 'acceptSuggestionOnEnter', function(config) {
-		return config.contribInfo.acceptSuggestionOnEnter;
-	}, function(editor, newValue) {
-		editor.updateOptions({ acceptSuggestionOnEnter: newValue });
-	}));
-
-	options.appendChild(createOptionToggle(editor, 'selectionHighlight', function(config) {
-		return config.contribInfo.selectionHighlight;
-	}, function(editor, newValue) {
-		editor.updateOptions({ selectionHighlight: newValue });
-	}));
-
-	options.appendChild(createOptionToggle(editor, 'folding', function(config) {
-		return config.contribInfo.folding;
-	}, function(editor, newValue) {
-		editor.updateOptions({ folding: newValue });
-	}));
-
-	options.appendChild(createOptionToggle(editor, 'renderWhitespace', function(config) {
-		return config.viewInfo.renderWhitespace;
-	}, function(editor, newValue) {
-		editor.updateOptions({ renderWhitespace: newValue });
-	}));
+	options.appendChild(createOptionToggle(
+		editor,
+		'folding',
+		function(config) {
+			return config.contribInfo.folding;
+		}, function(editor, newValue) {
+			editor.updateOptions({ folding: newValue });
+		}
+	));
 }
 
 

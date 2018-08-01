@@ -1,12 +1,3 @@
-.try [class*="span"] {
-	-webkit-box-sizing:	border-box;
-	-o-box-sizing:		border-box;
-	-moz-box-sizing:	border-box;
-	-ms-box-sizing:		border-box;
-	box-sizing:			border-box;
-	word-wrap:          break-word;
-}
-
 .try .drops {
 	margin: 0;
 	list-style: none;
@@ -134,46 +125,6 @@
 	opacity: 1;
 }
 
-.try .editor.row .bootstrap-select {
-	width: 200px;
-}
-
-.try .editor.row .bootstrap-select .btn {
-	background: none;
-	color: #555;
-	border: 1px solid #ddd;
-	width: 100%;
-}
-
-.try .editor.row .bootstrap-select .open .btn {
-	background-color: #0072C6;
-	color: #FFF;
-}
-
-.try .editor.row .bootstrap-select .open .btn .caret {
-	border-top-color: #FFF;
-}
-
-.try .editor.row .bootstrap-select .btn:focus {
-	outline: 0 auto #0072C6 !important;
-}
-
-.try .editor.row .bootstrap-select .btn:active,
-.try .editor.row .bootstrap-select.btn-group.open .dropdown-toggle {
-	-webkit-box-shadow: none;
-	-moz-box-shadow: none;
-	box-shadow: none;
-}
-
-.try .editor.row .bootstrap-select .dropdown-menu > li > a {
-	color: #555;
-}
-
-.try .editor.row .bootstrap-select .dropdown-menu > li > a:hover {
-	background: none;
-	background-color: #CDE7F9;
-}
-
 .try .editor .editor-frame {
 	position: relative;
 }
@@ -228,6 +179,12 @@
 	color: #BBB;
 }
 
+@media (min-width: 1200px) {
+	.try .editor .row {
+		margin-left: 0px;
+	}
+}
+
 @media (max-width: 767px) {
 	.try .container {
 		margin: 0 24px;
@@ -240,15 +197,6 @@
 	.try .editor > .span9 .row .span4 {
 		float: left;
 		width: 50%;
-	}
-
-	.try .editor > .span9 .row .bootstrap-select {
-		display: block;
-		width: 90%;
-	}
-
-	.try .editor > .span9 .row .bootstrap-select .btn {
-		width: 90%;
 	}
 
 	.try .editor h4 {

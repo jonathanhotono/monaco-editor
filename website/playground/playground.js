@@ -17,11 +17,12 @@ window.onload = function() {
 				'	onError: Function;',
 				'};',
 			].join('\n'), 'require.d.ts');
-
-			var loading = document.getElementById('loading');
-			loading.parentNode.removeChild(loading);
-			load();
 		});
+
+		var loading = document.getElementById('loading');
+		loading.parentNode.removeChild(loading);
+		load();
+
 	});
 };
 
@@ -176,22 +177,23 @@ function load() {
 
 	var sampleSwitcher = document.createElement('select');
 	var sampleChapter;
-	ALL_SAMPLES.forEach(function (sample) {
+	PLAY_SAMPLES.forEach(function (sample) {
 		if (!sampleChapter || sampleChapter.label !== sample.chapter) {
 			sampleChapter = document.createElement('optgroup');
 			sampleChapter.label = sample.chapter;
 			sampleSwitcher.appendChild(sampleChapter);
 		}
 		var sampleOption = document.createElement('option');
-		sampleOption.value = sample.sampleId;
+		sampleOption.value = sample.id;
 		sampleOption.appendChild(document.createTextNode(sample.name));
 		sampleChapter.appendChild(sampleOption);
 	});
 	sampleSwitcher.className = 'sample-switcher';
 
-	function findSample(sampleId) {
-		for (var i = 0; i < SAMPLES.length; i++) {
-			var sample = SAMPLES[i];
+	var LOADED_SAMPLES = [];
+	function findLoadedSample(sampleId) {
+		for (var i = 0; i < LOADED_SAMPLES.length; i++) {
+			var sample = LOADED_SAMPLES[i];
 			if (sample.id === sampleId) {
 				return sample;
 			}
@@ -199,22 +201,46 @@ function load() {
 		return null;
 	}
 
+	function findSamplePath(sampleId) {
+		for (var i = 0; i < PLAY_SAMPLES.length; i++) {
+			var sample = PLAY_SAMPLES[i];
+			if (sample.id === sampleId) {
+				return sample.path;
+			}
+		}
+		return null;
+	}
+
 	function loadSample(sampleId, callback) {
-		var sample = findSample(sampleId);
+		var sample = findLoadedSample(sampleId);
 		if (sample) {
 			return callback(null, sample);
 		}
 
-		var script = document.createElement('script');
-		script.src = 'playground/samples/' + sampleId + '.js';
-		script.onload = function() {
-			var sample = findSample(sampleId);
-			return callback(sample ? null : new Error('sample not found'), sample);
-		};
-		script.onerror = function(err) {
-			return callback(err, null);
-		};
-		document.head.appendChild(script);
+		var samplePath = findSamplePath(sampleId);
+		if (!samplePath) {
+			return callback(new Error('sample not found'));
+		}
+
+		samplePath = 'playground/new-samples/' + samplePath;
+
+		var js = xhr(samplePath + '/sample.js').then(function(response) { return response.responseText});
+		var css = xhr(samplePath + '/sample.css').then(function(response) { return response.responseText});
+		var html = xhr(samplePath + '/sample.html').then(function(response) { return response.responseText});
+		monaco.Promise.join([js, css, html]).then(function(_) {
+			var js = _[0];
+			var css = _[1];
+			var html = _[2];
+			LOADED_SAMPLES.push({
+				id: sampleId,
+				js: js,
+				css: css,
+				html: html
+			});
+			return callback(null, findLoadedSample(sampleId));
+		}, function(err) {
+			callback(err, null);
+		});
 	}
 
 	sampleSwitcher.onchange = function() {
@@ -236,14 +262,17 @@ function load() {
 	data.html.model = monaco.editor.createModel('html', 'html');
 
 	editor = monaco.editor.create(editorContainer, {
-		model: data.js.model
+		model: data.js.model,
+		minimap: {
+			enabled: false
+		}
 	});
 
 	var currentToken = 0;
 	function parseHash(firstTime) {
 		var sampleId = window.location.hash.replace(/^#/, '');
 		if (!sampleId) {
-			sampleId = ALL_SAMPLES[0].sampleId;
+			sampleId = PLAY_SAMPLES[0].id;
 		}
 
 		if (firstTime) {
@@ -308,7 +337,24 @@ function doRun(runContainer) {
 	});
 }
 
+var preloaded = {};
+(function() {
+	var elements = Array.prototype.slice.call(document.querySelectorAll('pre[data-preload]'), 0);
+
+	elements.forEach(function(el) {
+		var path = el.getAttribute('data-preload');
+		preloaded[path] = el.innerText || el.textContent;
+		el.parentNode.removeChild(el);
+	});
+})();
+
 function xhr(url) {
+	if (preloaded[url]) {
+		return monaco.Promise.as({
+			responseText: preloaded[url]
+		});
+	}
+
 	var req = null;
 	return new monaco.Promise(function(c,e,p) {
 		req = new XMLHttpRequest();
